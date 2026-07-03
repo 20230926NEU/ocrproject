@@ -52,9 +52,6 @@ public class Test extends Application {
 
         stage.setScene(scene);
         stage.show();
-
-        
-
     }
 
     public VBox getRightPane() {
@@ -114,5 +111,4 @@ public class Test extends Application {
     public static void main(String[] args) {
         launch(args);
     }
-
 }
