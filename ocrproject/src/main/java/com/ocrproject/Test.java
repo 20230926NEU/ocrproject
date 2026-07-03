@@ -16,10 +16,14 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
-import nu.pattern.OpenCV;
 
+import nu.pattern.OpenCV;
+import org.opencv.core.Mat;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 
 
 public class Test extends Application {
@@ -30,6 +34,7 @@ public class Test extends Application {
     TextArea rightPaneText = new TextArea("Test Text");
     Tesseract tesseract = new Tesseract();
     String ocrOutput = null;
+    String tempPreprocessImagePath = "/home/kagit/projects/java2/ocrproject/temp_preprocessed.png";
     
     @Override
     public void start(Stage stage){
@@ -94,18 +99,35 @@ public class Test extends Application {
         });
         button2.setOnAction (e -> {
             if(selectedFile != null){    
-            try {
-                ocrOutput = tesseract.doOCR(selectedFile);
-            } 
-            catch (TesseractException e1){
-                e1.printStackTrace();
-            }
+                try {                    
+                    File ProcessedImage = PreprocessImage();
+                    ocrOutput = tesseract.doOCR(ProcessedImage);
+                } 
+                catch (TesseractException e1){
+                    e1.printStackTrace();
+                }
             rightPaneText.setText(ocrOutput);         
             }
         });
         topPaneButtons.getChildren().addAll(button1, button2);
         topPane.getChildren().addAll(topPaneButtons, topPaneLabel);
         return topPane;
+    }
+
+    public File PreprocessImage() throws TesseractException {
+        Mat matImage = Imgcodecs.imread(selectedFile.getAbsolutePath());
+        Mat bwImage = new Mat();
+        Imgproc.cvtColor(matImage, bwImage, Imgproc.COLOR_BGR2GRAY);
+        
+        Mat binaryImage = new Mat();
+        Imgproc.threshold(bwImage, binaryImage, 150, 255, Imgproc.THRESH_BINARY);
+        Imgcodecs.imwrite(tempPreprocessImagePath, binaryImage);
+        
+        File processedFile = new File(tempPreprocessImagePath);
+        System.out.println(processedFile.getAbsolutePath());
+        System.out.println("Image size: " + matImage.width() + "x" + matImage.height());
+        System.out.println("Channels: " + matImage.channels());        
+        return processedFile;
     }
 
     public static void main(String[] args) {
