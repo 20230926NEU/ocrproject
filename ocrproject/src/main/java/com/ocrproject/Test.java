@@ -38,6 +38,7 @@ public class Test extends Application {
     
     @Override
     public void start(Stage stage){
+        tesseract.setLanguage("tur");
         OpenCV.loadLocally();
         stage.setTitle("Test Application");
         tesseract.setDatapath("/usr/share/tesseract-ocr/5/tessdata");
@@ -122,9 +123,12 @@ public class Test extends Application {
         Mat matImage = Imgcodecs.imread(selectedFile.getAbsolutePath());
         Mat bwImage = new Mat();
         Imgproc.cvtColor(matImage, bwImage, Imgproc.COLOR_BGR2GRAY);
+
+        //Mat denoised = new Mat();
+        //Imgproc.bilateralFilter(bwImage, denoised, 9, 50, 50);
         
         Mat binaryImage = new Mat();
-        Imgproc.threshold(bwImage, binaryImage, 150, 255, Imgproc.THRESH_BINARY);
+        Imgproc.threshold(bwImage, binaryImage, 110, 255, Imgproc.THRESH_BINARY);
         Imgcodecs.imwrite(tempPreprocessImagePath, binaryImage);
         
         File processedFile = new File(tempPreprocessImagePath);
