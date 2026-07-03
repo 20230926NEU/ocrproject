@@ -14,7 +14,6 @@ import javafx.stage.Stage;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.control.*;
-
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 
@@ -34,18 +33,19 @@ public class Test extends Application {
     String ocrOutput = null;
     String tempPreprocessImagePath = "/home/kagit/projects/java2/ocrproject/temp_preprocessed.png";
     String modelSelection = null;
-    Alert alert = new Alert(Alert.AlertType.ERROR);
+    Alert unimplementNotification = new Alert(Alert.AlertType.ERROR);
     
     @Override
     public void start(Stage stage){
-        tesseract.setLanguage("tur");
-        OpenCV.loadLocally();
         stage.setTitle("Test Application");
-        tesseract.setDatapath("/usr/share/tesseract-ocr/5/tessdata");
         
-        alert.setTitle("Error");
-        alert.setHeaderText("Feature not Implemented!");
-        alert.setContentText("Come back here at a later time.");
+        unimplementNotification.setTitle("Error");
+        unimplementNotification.setHeaderText("Feature Not Implemented!");
+        unimplementNotification.setContentText("Come back here at a later time.");
+
+        tesseract.setLanguage("tur");
+        tesseract.setDatapath("/usr/share/tesseract-ocr/5/tessdata");
+        OpenCV.loadLocally();
 
         BorderPane borderPane = new BorderPane();
         
@@ -59,8 +59,8 @@ public class Test extends Application {
         borderPane.setRight(rightPane);
 
         Scene scene = new Scene(borderPane, 650, 350, Color.BEIGE);
-
         stage.setScene(scene);
+        
         stage.show();
     }
 
@@ -88,18 +88,21 @@ public class Test extends Application {
         VBox topPane = new VBox(10);
         HBox topPaneButtons = new HBox(10);
         topPane.setPadding(new Insets(10));
-        Button button1 = new Button("Select File");        
-        Button button2 = new Button("Scan");
+        Button selectFileButton = new Button("Select File");        
+        Button scanButton = new Button("Scan");
         topPaneLabel = new Label("Please select a file.");
         ComboBox<String> modelDropdown = new ComboBox<>();
         modelDropdown.getItems().addAll("Tesseract", "Placeholder Model", "Online API");
         modelDropdown.setValue("Tesseract");
         modelSelection = modelDropdown.getValue();
-        button1.setOnAction (e -> {
-            getFile();
-            
+        Alert selectFilePopup = new Alert(Alert.AlertType.INFORMATION);
+        selectFilePopup.setTitle("File Selection");
+        selectFilePopup.setHeaderText("You haven't selected a file.");
+        selectFilePopup.setContentText("Please select a file, then try again.");
+        selectFileButton.setOnAction (e -> {
+            selectFile();
         });
-        button2.setOnAction (e -> {
+        scanButton.setOnAction (e -> {
             if(selectedFile != null){    
                 if (modelDropdown.getValue().equals("Tesseract")){
                     try{
@@ -112,19 +115,22 @@ public class Test extends Application {
                     }
                 }
                 else if (modelDropdown.getValue().equals("Placeholder Model")){
-                    alert.showAndWait();
+                    unimplementNotification.showAndWait();
                 } 
                 else if (modelDropdown.getValue().equals("Online API")){
-                    alert.showAndWait();
+                    unimplementNotification.showAndWait();
                 }
             }
+            else if(selectedFile == null){
+                selectFilePopup.showAndWait();
+            }
         });
-        topPaneButtons.getChildren().addAll(button1, button2, modelDropdown);
+        topPaneButtons.getChildren().addAll(selectFileButton, scanButton, modelDropdown);
         topPane.getChildren().addAll(topPaneButtons, topPaneLabel);
         return topPane;
     }
 
-    public void getFile() {
+    public void selectFile() {
         fileChooser.setTitle("Select an Image");
         FileChooser.ExtensionFilter fileFilter = new FileChooser.ExtensionFilter("Image Files (*.jpg, *.png)", "*.jpg", "*.png");
         fileChooser.getExtensionFilters().add(fileFilter);      
@@ -137,8 +143,6 @@ public class Test extends Application {
     }
 
     public File PreprocessImage() throws TesseractException {
-        System.out.println("MODEL SELECTION NOT IMPLEMENTED " + modelSelection);
-
         Mat matImage = Imgcodecs.imread(selectedFile.getAbsolutePath());
         Mat bwImage = new Mat();
         Imgproc.cvtColor(matImage, bwImage, Imgproc.COLOR_BGR2GRAY);
