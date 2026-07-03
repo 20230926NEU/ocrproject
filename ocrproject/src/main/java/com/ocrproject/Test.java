@@ -5,9 +5,6 @@ import java.io.File;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -16,7 +13,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.control.ComboBox;
+import javafx.scene.control.*;
 
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
@@ -37,6 +34,7 @@ public class Test extends Application {
     String ocrOutput = null;
     String tempPreprocessImagePath = "/home/kagit/projects/java2/ocrproject/temp_preprocessed.png";
     String modelSelection = null;
+    Alert alert = new Alert(Alert.AlertType.ERROR);
     
     @Override
     public void start(Stage stage){
@@ -44,6 +42,10 @@ public class Test extends Application {
         OpenCV.loadLocally();
         stage.setTitle("Test Application");
         tesseract.setDatapath("/usr/share/tesseract-ocr/5/tessdata");
+        
+        alert.setTitle("Error");
+        alert.setHeaderText("Feature not Implemented!");
+        alert.setContentText("Come back here at a later time.");
 
         BorderPane borderPane = new BorderPane();
         
@@ -99,14 +101,22 @@ public class Test extends Application {
         });
         button2.setOnAction (e -> {
             if(selectedFile != null){    
-                try {                    
-                    File ProcessedImage = PreprocessImage();
-                    ocrOutput = tesseract.doOCR(ProcessedImage);
-                } 
-                catch (TesseractException e1){
-                    e1.printStackTrace();
+                if (modelDropdown.getValue().equals("Tesseract")){
+                    try{
+                        File ProcessedImage = PreprocessImage();
+                        ocrOutput = tesseract.doOCR(ProcessedImage);
+                        rightPaneText.setText(ocrOutput);  
+                    }
+                    catch (TesseractException e1){
+                        e1.printStackTrace();
+                    }
                 }
-            rightPaneText.setText(ocrOutput);         
+                else if (modelDropdown.getValue().equals("Placeholder Model")){
+                    alert.showAndWait();
+                } 
+                else if (modelDropdown.getValue().equals("Online API")){
+                    alert.showAndWait();
+                }
             }
         });
         topPaneButtons.getChildren().addAll(button1, button2, modelDropdown);
