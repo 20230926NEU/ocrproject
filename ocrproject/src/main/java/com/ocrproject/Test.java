@@ -16,6 +16,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.control.ComboBox;
 
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
@@ -35,6 +36,7 @@ public class Test extends Application {
     Tesseract tesseract = new Tesseract();
     String ocrOutput = null;
     String tempPreprocessImagePath = "/home/kagit/projects/java2/ocrproject/temp_preprocessed.png";
+    String modelSelection = null;
     
     @Override
     public void start(Stage stage){
@@ -54,7 +56,7 @@ public class Test extends Application {
         VBox rightPane = getRightPane();
         borderPane.setRight(rightPane);
 
-        Scene scene = new Scene(borderPane, 650, 350, Color.WHITESMOKE);
+        Scene scene = new Scene(borderPane, 650, 350, Color.BEIGE);
 
         stage.setScene(scene);
         stage.show();
@@ -87,8 +89,13 @@ public class Test extends Application {
         Button button1 = new Button("Select File");        
         Button button2 = new Button("Scan");
         topPaneLabel = new Label("Please select a file.");
+        ComboBox<String> modelDropdown = new ComboBox<>();
+        modelDropdown.getItems().addAll("Tesseract", "Placeholder Model", "Online API");
+        modelDropdown.setValue("Tesseract");
+        modelSelection = modelDropdown.getValue();
         button1.setOnAction (e -> {
             getFile();
+            
         });
         button2.setOnAction (e -> {
             if(selectedFile != null){    
@@ -102,7 +109,7 @@ public class Test extends Application {
             rightPaneText.setText(ocrOutput);         
             }
         });
-        topPaneButtons.getChildren().addAll(button1, button2);
+        topPaneButtons.getChildren().addAll(button1, button2, modelDropdown);
         topPane.getChildren().addAll(topPaneButtons, topPaneLabel);
         return topPane;
     }
@@ -120,6 +127,8 @@ public class Test extends Application {
     }
 
     public File PreprocessImage() throws TesseractException {
+        System.out.println("MODEL SELECTION NOT IMPLEMENTED " + modelSelection);
+
         Mat matImage = Imgcodecs.imread(selectedFile.getAbsolutePath());
         Mat bwImage = new Mat();
         Imgproc.cvtColor(matImage, bwImage, Imgproc.COLOR_BGR2GRAY);
