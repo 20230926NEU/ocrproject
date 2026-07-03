@@ -87,15 +87,7 @@ public class Test extends Application {
         Button button2 = new Button("Scan");
         topPaneLabel = new Label("Please select a file.");
         button1.setOnAction (e -> {
-            fileChooser.setTitle("Select an Image");
-            FileChooser.ExtensionFilter fileFilter = new FileChooser.ExtensionFilter("Image Files (*.jpg, *.png)", "*.jpg", "*.png");
-            fileChooser.getExtensionFilters().add(fileFilter);      
-            selectedFile = fileChooser.showOpenDialog(null);
-            if (selectedFile !=null){
-                topPaneLabel.setText("Selected: " + selectedFile.getName());
-                Image selectedImage = new Image(selectedFile.toURI().toString());
-                image.setImage(selectedImage);
-            }
+            getFile();
         });
         button2.setOnAction (e -> {
             if(selectedFile != null){    
@@ -112,6 +104,18 @@ public class Test extends Application {
         topPaneButtons.getChildren().addAll(button1, button2);
         topPane.getChildren().addAll(topPaneButtons, topPaneLabel);
         return topPane;
+    }
+
+    public void getFile() {
+        fileChooser.setTitle("Select an Image");
+        FileChooser.ExtensionFilter fileFilter = new FileChooser.ExtensionFilter("Image Files (*.jpg, *.png)", "*.jpg", "*.png");
+        fileChooser.getExtensionFilters().add(fileFilter);      
+        selectedFile = fileChooser.showOpenDialog(null);
+        if (selectedFile !=null){
+            topPaneLabel.setText("Selected: " + selectedFile.getName());
+            Image selectedImage = new Image(selectedFile.toURI().toString());
+            image.setImage(selectedImage);
+        }
     }
 
     public File PreprocessImage() throws TesseractException {
