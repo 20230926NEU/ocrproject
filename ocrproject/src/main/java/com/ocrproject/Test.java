@@ -180,7 +180,6 @@ public class Test extends Application {
         System.out.println(label + ": " + elapsed + "ms");
         return elapsed;
     }
-
     public static void main(String[] args) {
         launch(args);
     }
