@@ -32,7 +32,6 @@ public class Test extends Application {
     Tesseract tesseract = new Tesseract();
     String ocrOutput = null;
     String tempPreprocessImagePath = "/home/kagit/projects/java2/ocrproject/temp_preprocessed.png";
-    String modelSelection = null;
     Alert unimplementNotification = new Alert(Alert.AlertType.ERROR);
     
     @Override
@@ -91,10 +90,12 @@ public class Test extends Application {
         Button selectFileButton = new Button("Select File");        
         Button scanButton = new Button("Scan");
         topPaneLabel = new Label("Please select a file.");
-        ComboBox<String> modelDropdown = new ComboBox<>();
-        modelDropdown.getItems().addAll("Tesseract", "Placeholder Model", "Online API");
-        modelDropdown.setValue("Tesseract");
-        modelSelection = modelDropdown.getValue();
+        CheckBox tesseractCheckbox = new CheckBox("Tesseract");
+        tesseractCheckbox.setPadding(new Insets(3.5));
+        CheckBox placeholderCheckbox = new CheckBox("Placeholder");
+        placeholderCheckbox.setPadding(new Insets(3.5));
+        CheckBox onlineApiCheckbox = new CheckBox("Online API");
+        onlineApiCheckbox.setPadding(new Insets(3.5));
         Alert selectFilePopup = new Alert(Alert.AlertType.INFORMATION);
         selectFilePopup.setTitle("File Selection");
         selectFilePopup.setHeaderText("You haven't selected a file.");
@@ -104,28 +105,37 @@ public class Test extends Application {
         });
         scanButton.setOnAction (e -> {
             if(selectedFile != null){    
-                if (modelDropdown.getValue().equals("Tesseract")){
+                if (tesseractCheckbox.isSelected()){
+                    long tesseractTotalTimer = startTimer();
                     try{
-                        File ProcessedImage = PreprocessImage();
+                        long preprocessingTimer = startTimer();
+                        File ProcessedImage = preprocessImage();
+                        endTimer(preprocessingTimer, "Tesseract Preprocessing");
+                        long tesseractTimer = startTimer();
                         ocrOutput = tesseract.doOCR(ProcessedImage);
-                        rightPaneText.setText(ocrOutput);  
+                        endTimer(tesseractTimer, "Tesseract Processing");
+                        endTimer(tesseractTotalTimer, "Tesseract Total Time");
+                        rightPaneText.setText(ocrOutput); 
                     }
-                    catch (TesseractException e1){
-                        e1.printStackTrace();
+                        catch (TesseractException e1){
+                            e1.printStackTrace();
                     }
                 }
-                else if (modelDropdown.getValue().equals("Placeholder Model")){
+                if (placeholderCheckbox.isSelected()){
                     unimplementNotification.showAndWait();
                 } 
-                else if (modelDropdown.getValue().equals("Online API")){
+                if (onlineApiCheckbox.isSelected()){
                     unimplementNotification.showAndWait();
                 }
+                else{
+                    unimplementNotification.showAndWait();
+                } 
             }
             else if(selectedFile == null){
                 selectFilePopup.showAndWait();
             }
         });
-        topPaneButtons.getChildren().addAll(selectFileButton, scanButton, modelDropdown);
+        topPaneButtons.getChildren().addAll(selectFileButton, scanButton, tesseractCheckbox, placeholderCheckbox, onlineApiCheckbox);
         topPane.getChildren().addAll(topPaneButtons, topPaneLabel);
         return topPane;
     }
@@ -142,7 +152,7 @@ public class Test extends Application {
         }
     }
 
-    public File PreprocessImage() throws TesseractException {
+    public File preprocessImage() throws TesseractException {
         Mat matImage = Imgcodecs.imread(selectedFile.getAbsolutePath());
         Mat bwImage = new Mat();
         Imgproc.cvtColor(matImage, bwImage, Imgproc.COLOR_BGR2GRAY);
@@ -159,6 +169,16 @@ public class Test extends Application {
         System.out.println("Image size: " + matImage.width() + "x" + matImage.height());
         System.out.println("Channels: " + matImage.channels());        
         return processedFile;
+    }
+
+    private long startTimer(){
+        return System.currentTimeMillis();
+    }
+
+    private long endTimer(long startTime, String label){
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println(label + ": " + elapsed + "ms");
+        return elapsed;
     }
 
     public static void main(String[] args) {
