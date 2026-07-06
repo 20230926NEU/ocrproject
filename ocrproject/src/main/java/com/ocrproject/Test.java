@@ -1,7 +1,6 @@
 package com.ocrproject;
 
 import java.io.File;
-
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -18,10 +17,19 @@ import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 
 import nu.pattern.OpenCV;
+
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
-
+import org.json.JSONObject;
 
 public class Test extends Application {
     FileChooser fileChooser = new FileChooser();
@@ -31,8 +39,15 @@ public class Test extends Application {
     TextArea rightPaneText = new TextArea("Test Text");
     Tesseract tesseract = new Tesseract();
     String ocrOutput = null;
+    //TODO: Add logic to let the user decide where to put temp files and make variables accordingly
     String tempPreprocessImagePath = "/home/kagit/projects/java2/ocrproject/temp_preprocessed.png";
+    String tempDownsizeImagePath = "/home/kagit/projects/java2/ocrproject/temp_downsized.png";
     Alert unimplementNotification = new Alert(Alert.AlertType.ERROR);
+    CloseableHttpClient httpClient = HttpClients.createDefault();
+
+    public static void main(String[] args) {
+        launch(args);
+    }
     
     @Override
     public void start(Stage stage){
@@ -125,7 +140,11 @@ public class Test extends Application {
                     unimplementNotification.showAndWait();
                 } 
                 if (onlineApiCheckbox.isSelected()){
-                    unimplementNotification.showAndWait();
+                    try {
+                        System.out.println(testFunc(downsizeImage(selectedFile))); 
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
                 }
                 else{
                     unimplementNotification.showAndWait();
@@ -180,7 +199,47 @@ public class Test extends Application {
         System.out.println(label + ": " + elapsed + "ms");
         return elapsed;
     }
-    public static void main(String[] args) {
-        launch(args);
-    }
+
+    private String testFunc(File downsizedImage) throws Exception{
+        HttpPost httpPost = new HttpPost("https://api.ocr.space/parse/image");
+
+        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+        String fileName = downsizedImage.getName().toLowerCase();
+        ContentType contentType = null;
+        if(fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")){
+            contentType = ContentType.IMAGE_JPEG;
+        }
+        else if(fileName.endsWith("png")){
+            contentType = ContentType.IMAGE_PNG;
+        }
+        else {
+            contentType = ContentType.APPLICATION_OCTET_STREAM;
+        }
+
+        builder.addBinaryBody("file", downsizedImage, contentType, downsizedImage.getName());
+        //TODO: REMOVE HARDCODED API KEY AND ADD SETTING TO LET USER ADD IT INSTEAD
+        builder.addTextBody("apikey", "NO KEY");
+        builder.addTextBody("language", "tur");
+        httpPost.setEntity(builder.build());
+
+        ClassicHttpResponse response = httpClient.executeOpen(null, httpPost, null);
+        String jsonResponse = EntityUtils.toString(response.getEntity());
+
+        //TODO: Parse the JSON properly instead of outputting it straight
+        JSONObject jsonObject = new JSONObject(jsonResponse);
+        System.out.println(jsonResponse);
+        return jsonResponse;
+     }
+     
+     //TODO:Add logic to determine if we need to downsize images (<1.5 MB)
+     private File downsizeImage(File imageFile){
+        String imageFileLocation = imageFile.getAbsolutePath();
+        Mat input = Imgcodecs.imread(imageFileLocation);
+        Mat output = new Mat();
+        Imgproc.resize(input, output, new Size(0, 0), 0.8, 0.8, Imgproc.INTER_AREA);
+
+        Imgcodecs.imwrite(tempDownsizeImagePath, output);
+        File downsizedImage = new File(tempDownsizeImagePath);
+        return downsizedImage;
+     }
 }
