@@ -31,6 +31,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class Test extends Application {
@@ -48,6 +49,8 @@ public class Test extends Application {
     String apiKey = "";
     Alert unimplementNotification = new Alert(Alert.AlertType.ERROR);
     Alert apiKeyNotSetNotification = new Alert(Alert.AlertType.ERROR);
+    Alert selectFilePopup = new Alert(Alert.AlertType.ERROR);
+    Alert noModelsSelectedNotification = new Alert(Alert.AlertType.ERROR);
     CloseableHttpClient httpClient = HttpClients.createDefault();
 
     public static void main(String[] args) {
@@ -59,17 +62,25 @@ public class Test extends Application {
         unimplementNotification.setHeaderText("Feature Not Implemented!");
         unimplementNotification.setContentText("Come back here at a later time.");
 
-        apiKeyNotSetNotification.setTitle("Error");
+        apiKeyNotSetNotification.setTitle("API Key");
         apiKeyNotSetNotification.setHeaderText("You haven't set the API key!");
-        apiKeyNotSetNotification.setContentText("Please go to settings and type in a API key.");
+        apiKeyNotSetNotification.setContentText("Please go to settings and type in an API key.");
+        
+        selectFilePopup.setTitle("File Selection");
+        selectFilePopup.setHeaderText("You haven't selected a file!");
+        selectFilePopup.setContentText("Please select a file, then try again.");
+                
+        noModelsSelectedNotification.setTitle("Model Selection");
+        noModelsSelectedNotification.setHeaderText("You haven't selected a model!");
+        noModelsSelectedNotification.setContentText("Please select a model, then try again.");
     }
     
     @Override
     public void start(Stage stage){
         stage.setTitle("Test Application");
         
-        System.out.println(tempDir);
-        System.out.println("debug:set " + tempPreprocessImagePath + " as the preprocess path.");
+        System.out.println("debug: got " + tempDir + " as the temp directory.");
+        System.out.println("debug: set " + tempPreprocessImagePath + " as the preprocess path.");
 
         setAlerts();
 
@@ -90,7 +101,6 @@ public class Test extends Application {
 
         Scene scene = new Scene(borderPane, 650, 350, Color.BEIGE);
         stage.setScene(scene);
-        
         stage.show();
     }
 
@@ -128,13 +138,10 @@ public class Test extends Application {
         placeholderCheckbox.setPadding(new Insets(3.5));
         CheckBox onlineApiCheckbox = new CheckBox("Online API");
         onlineApiCheckbox.setPadding(new Insets(3.5));
-        Alert selectFilePopup = new Alert(Alert.AlertType.INFORMATION);
-        selectFilePopup.setTitle("File Selection");
-        selectFilePopup.setHeaderText("You haven't selected a file.");
-        selectFilePopup.setContentText("Please select a file, then try again.");
         selectFileButton.setOnAction (e -> {
             selectFile();
         });
+        
         scanButton.setOnAction (e -> {
             //TODO: Eye-watering logic.
             if(selectedFile != null){    
@@ -146,13 +153,13 @@ public class Test extends Application {
                 } 
                 if (onlineApiCheckbox.isSelected()){
                     try {
-                        System.out.println(callAPI(downsizeImageOrSkip(selectedFile))); 
+                        System.out.println("debug (parsed json response): " + callAPI(downsizeImageOrSkip(selectedFile))); 
                     } catch (Exception e1) {
                         e1.printStackTrace();
                     }
                 }
-                if (tesseractCheckbox.isSelected() != true && placeholderCheckbox.isSelected() != true && onlineApiCheckbox.isSelected() != true){
-                    unimplementNotification.showAndWait();
+                if (!tesseractCheckbox.isSelected() && !placeholderCheckbox.isSelected() && !onlineApiCheckbox.isSelected()){
+                    noModelsSelectedNotification.showAndWait();
                 } 
             }
             else if(selectedFile == null){
@@ -172,6 +179,7 @@ public class Test extends Application {
 
     public void selectFile() {
         fileChooser.setTitle("Select an Image");
+        fileChooser.getExtensionFilters().clear();
         FileChooser.ExtensionFilter fileFilter = new FileChooser.ExtensionFilter("Image Files (*.jpg, *.png)", "*.jpg", "*.png");
         fileChooser.getExtensionFilters().add(fileFilter);      
         selectedFile = fileChooser.showOpenDialog(null);
@@ -197,7 +205,10 @@ public class Test extends Application {
         File processedFile = new File(tempPreprocessImagePath);
         System.out.println(processedFile.getAbsolutePath());
         System.out.println("Image size: " + matImage.width() + "x" + matImage.height());
-        System.out.println("Channels: " + matImage.channels());        
+        System.out.println("Channels: " + matImage.channels());
+        matImage.release();
+        bwImage.release();
+        binaryImage.release();     
         return processedFile;
     }
 
@@ -216,8 +227,7 @@ public class Test extends Application {
         if (apiKey.isBlank()){
             apiKeyNotSetNotification.showAndWait();
             return jsonResponse;
-        }
-        
+        }        
         HttpPost httpPost = new HttpPost("https://api.ocr.space/parse/image");
 
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
@@ -235,23 +245,28 @@ public class Test extends Application {
 
         builder.addBinaryBody("file", downsizedImage, contentType, downsizedImage.getName());
         builder.addTextBody("apikey", apiKey);
-        System.out.println("trying api key: " + apiKey);
+        System.out.println("debug (trying api key): " + apiKey);
         builder.addTextBody("language", "tur");
         httpPost.setEntity(builder.build());
 
         ClassicHttpResponse response = httpClient.executeOpen(null, httpPost, null);
         jsonResponse = EntityUtils.toString(response.getEntity());
+        System.out.println("debug (raw json response): " + jsonResponse);
+        return parseJsonResponse(jsonResponse);
+    }
 
-        //TODO: Parse the JSON properly instead of outputting it straight
+    private String parseJsonResponse(String jsonResponse){
         JSONObject jsonObject = new JSONObject(jsonResponse);
-        System.out.println(jsonResponse);
-        return jsonResponse;
-     }
+        JSONArray results = jsonObject.getJSONArray("ParsedResults");
+        JSONObject firstResult = results.getJSONObject(0);
+        String parsedJson = firstResult.getString("ParsedText");
+        return parsedJson;
+    }
      
-     private File downsizeImageOrSkip(File imageFile){
+    private File downsizeImageOrSkip(File imageFile){
         File downsizedImage = imageFile;
         System.out.println("image computed size: " + ((float)imageFile.length() / (1024* 1024)));
-        if ((float)imageFile.length() / (1024* 1024) > 1.5){
+        if ((float)imageFile.length() / (1024 * 1024) > 1.5){
             String imageFileLocation = imageFile.getAbsolutePath();
             Mat input = Imgcodecs.imread(imageFileLocation);
             Mat output = new Mat();
@@ -259,11 +274,13 @@ public class Test extends Application {
 
             Imgcodecs.imwrite(tempDownsizeImagePath, output);
             downsizedImage = new File(tempDownsizeImagePath);
+            input.release();
+            output.release();
         }
         return downsizedImage;
-     }
+    }
 
-     private void doTesseractOCR(){
+    private void doTesseractOCR(){
         long tesseractTotalTimer = startTimer();
         try{
             long preprocessingTimer = startTimer();
@@ -278,8 +295,9 @@ public class Test extends Application {
             catch (TesseractException e1){
                 e1.printStackTrace();
             }
-     }
-     private void openSettingsWindow(){
+    }
+
+    private void openSettingsWindow(){
         Stage settingsStage = new Stage();
         settingsStage.setTitle("Settings");
         settingsStage.setWidth(400);
@@ -313,7 +331,8 @@ public class Test extends Application {
 
         Button saveButton = new Button("Save");
         saveButton.setOnAction(e -> {
-            tesseract.setDatapath(tesseractPathField.getText());
+            tesseractDataPath = tesseractPathField.getText();
+            tesseract.setDatapath(tesseractDataPath);
             apiKey = apiKeyField.getText();
             settingsStage.close();
         });
@@ -328,11 +347,11 @@ public class Test extends Application {
         settingsStage.setScene(settingsScene);
         settingsStage.show();
     }
-    
+
     @Override
-     public void stop() throws Exception{
+    public void stop() throws Exception{
         httpClient.close();
         System.out.println("debug: http client closed");
         super.stop();
-     }
+    }
 }
