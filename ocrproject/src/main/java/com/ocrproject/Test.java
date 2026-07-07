@@ -42,10 +42,10 @@ public class Test extends Application {
     Tesseract tesseract = new Tesseract();
     String ocrOutput = null;
     String tempDir = System.getProperty("java.io.tmpdir");
-    String tempPreprocessImagePath = tempDir + "/temp_preprocessed.png";
-    String tempDownsizeImagePath = tempDir + "/temp_downsized.png";
+    final String tempPreprocessImagePath = tempDir + File.separator + "temp_preprocessed.png";
+    final String tempDownsizeImagePath = tempDir + File.separator + "temp_downsized.png";
     String tesseractDataPath = "/usr/share/tesseract-ocr/5/tessdata";
-    String apiKey;
+    String apiKey = "";
     Alert unimplementNotification = new Alert(Alert.AlertType.ERROR);
     Alert apiKeyNotSetNotification = new Alert(Alert.AlertType.ERROR);
     CloseableHttpClient httpClient = HttpClients.createDefault();
@@ -69,6 +69,7 @@ public class Test extends Application {
         stage.setTitle("Test Application");
         
         System.out.println(tempDir);
+        System.out.println("debug:set " + tempPreprocessImagePath + " as the preprocess path.");
 
         setAlerts();
 
@@ -301,24 +302,6 @@ public class Test extends Application {
 
         HBox tesseractPathBox = new HBox(10);
         tesseractPathBox.getChildren().addAll(tesseractPathField, tesseractPathButton);
-
-        Label tempPathLabel = new Label("Temp Image Path:");
-        TextField tempPathField = new TextField();
-        tempPathField.setPrefWidth(250);
-        tempPathField.setText(tempPreprocessImagePath);
-        Button tempPathButton = new Button("Browse...");
-        tempPathButton.setOnAction(e -> {
-        DirectoryChooser dirChooser = new DirectoryChooser();
-        dirChooser.setTitle("Select Temp Image Directory");
-        File selectedDir = dirChooser.showDialog(settingsStage);
-        
-        if (selectedDir != null) {
-            tempPathField.setText(selectedDir.getAbsolutePath());
-        }
-        });
-    
-        HBox tempPathBox = new HBox(10);
-        tempPathBox.getChildren().addAll(tempPathField, tempPathButton);
     
         Label apiKeyLabel = new Label ("OCR API Key:");
         TextField apiKeyField = new TextField();
@@ -331,14 +314,12 @@ public class Test extends Application {
         Button saveButton = new Button("Save");
         saveButton.setOnAction(e -> {
             tesseract.setDatapath(tesseractPathField.getText());
-            tempPreprocessImagePath = tempPathField.getText();
             apiKey = apiKeyField.getText();
             settingsStage.close();
         });
     
         settingsPane.getChildren().addAll(
             tesseractPathLabel, tesseractPathBox,
-            tempPathLabel, tempPathBox,
             apiKeyLabel, apiKeyBox,
             saveButton
         );
