@@ -8,6 +8,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
@@ -25,6 +26,7 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -39,26 +41,39 @@ public class Test extends Application {
     TextArea rightPaneText = new TextArea("Test Text");
     Tesseract tesseract = new Tesseract();
     String ocrOutput = null;
-    //TODO: Add logic to let the user decide where to put temp files and make variables accordingly
-    String tempPreprocessImagePath = "/home/kagit/projects/java2/ocrproject/temp_preprocessed.png";
-    String tempDownsizeImagePath = "/home/kagit/projects/java2/ocrproject/temp_downsized.png";
+    String tempDir = System.getProperty("java.io.tmpdir");
+    String tempPreprocessImagePath = tempDir + "/temp_preprocessed.png";
+    String tempDownsizeImagePath = tempDir + "/temp_downsized.png";
+    String tesseractDataPath = "/usr/share/tesseract-ocr/5/tessdata";
+    String apiKey;
     Alert unimplementNotification = new Alert(Alert.AlertType.ERROR);
+    Alert apiKeyNotSetNotification = new Alert(Alert.AlertType.ERROR);
     CloseableHttpClient httpClient = HttpClients.createDefault();
 
     public static void main(String[] args) {
         launch(args);
     }
     
-    @Override
-    public void start(Stage stage){
-        stage.setTitle("Test Application");
-        
+    public void setAlerts(){
         unimplementNotification.setTitle("Error");
         unimplementNotification.setHeaderText("Feature Not Implemented!");
         unimplementNotification.setContentText("Come back here at a later time.");
 
+        apiKeyNotSetNotification.setTitle("Error");
+        apiKeyNotSetNotification.setHeaderText("You haven't set the API key!");
+        apiKeyNotSetNotification.setContentText("Please go to settings and type in a API key.");
+    }
+    
+    @Override
+    public void start(Stage stage){
+        stage.setTitle("Test Application");
+        
+        System.out.println(tempDir);
+
+        setAlerts();
+
         tesseract.setLanguage("tur");
-        tesseract.setDatapath("/usr/share/tesseract-ocr/5/tessdata");
+        tesseract.setDatapath(tesseractDataPath);
         OpenCV.loadLocally();
 
         BorderPane borderPane = new BorderPane();
@@ -104,6 +119,7 @@ public class Test extends Application {
         topPane.setPadding(new Insets(10));
         Button selectFileButton = new Button("Select File");        
         Button scanButton = new Button("Scan");
+        Button settingsButton = new Button("Settings");
         topPaneLabel = new Label("Please select a file.");
         CheckBox tesseractCheckbox = new CheckBox("Tesseract");
         tesseractCheckbox.setPadding(new Insets(3.5));
@@ -119,34 +135,22 @@ public class Test extends Application {
             selectFile();
         });
         scanButton.setOnAction (e -> {
+            //TODO: Eye-watering logic.
             if(selectedFile != null){    
                 if (tesseractCheckbox.isSelected()){
-                    long tesseractTotalTimer = startTimer();
-                    try{
-                        long preprocessingTimer = startTimer();
-                        File ProcessedImage = preprocessImage();
-                        endTimer(preprocessingTimer, "Tesseract Preprocessing");
-                        long tesseractTimer = startTimer();
-                        ocrOutput = tesseract.doOCR(ProcessedImage);
-                        endTimer(tesseractTimer, "Tesseract Processing");
-                        endTimer(tesseractTotalTimer, "Tesseract Total Time");
-                        rightPaneText.setText(ocrOutput); 
-                    }
-                        catch (TesseractException e1){
-                            e1.printStackTrace();
-                    }
+                    doTesseractOCR();
                 }
                 if (placeholderCheckbox.isSelected()){
                     unimplementNotification.showAndWait();
                 } 
                 if (onlineApiCheckbox.isSelected()){
                     try {
-                        System.out.println(testFunc(downsizeImage(selectedFile))); 
+                        System.out.println(callAPI(downsizeImageOrSkip(selectedFile))); 
                     } catch (Exception e1) {
                         e1.printStackTrace();
                     }
                 }
-                else{
+                if (tesseractCheckbox.isSelected() != true && placeholderCheckbox.isSelected() != true && onlineApiCheckbox.isSelected() != true){
                     unimplementNotification.showAndWait();
                 } 
             }
@@ -154,8 +158,14 @@ public class Test extends Application {
                 selectFilePopup.showAndWait();
             }
         });
-        topPaneButtons.getChildren().addAll(selectFileButton, scanButton, tesseractCheckbox, placeholderCheckbox, onlineApiCheckbox);
-        topPane.getChildren().addAll(topPaneButtons, topPaneLabel);
+        settingsButton.setOnAction(e -> {
+            openSettingsWindow();
+        });
+        topPaneButtons.getChildren().addAll(
+            selectFileButton, scanButton, settingsButton,
+            tesseractCheckbox, placeholderCheckbox, onlineApiCheckbox);
+        
+            topPane.getChildren().addAll(topPaneButtons, topPaneLabel);
         return topPane;
     }
 
@@ -200,7 +210,13 @@ public class Test extends Application {
         return elapsed;
     }
 
-    private String testFunc(File downsizedImage) throws Exception{
+    private String callAPI(File downsizedImage) throws Exception{
+        String jsonResponse = "No response or no API key set.";
+        if (apiKey.isBlank()){
+            apiKeyNotSetNotification.showAndWait();
+            return jsonResponse;
+        }
+        
         HttpPost httpPost = new HttpPost("https://api.ocr.space/parse/image");
 
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
@@ -217,13 +233,13 @@ public class Test extends Application {
         }
 
         builder.addBinaryBody("file", downsizedImage, contentType, downsizedImage.getName());
-        //TODO: REMOVE HARDCODED API KEY AND ADD SETTING TO LET USER ADD IT INSTEAD
-        builder.addTextBody("apikey", "NO KEY");
+        builder.addTextBody("apikey", apiKey);
+        System.out.println("trying api key: " + apiKey);
         builder.addTextBody("language", "tur");
         httpPost.setEntity(builder.build());
 
         ClassicHttpResponse response = httpClient.executeOpen(null, httpPost, null);
-        String jsonResponse = EntityUtils.toString(response.getEntity());
+        jsonResponse = EntityUtils.toString(response.getEntity());
 
         //TODO: Parse the JSON properly instead of outputting it straight
         JSONObject jsonObject = new JSONObject(jsonResponse);
@@ -231,15 +247,111 @@ public class Test extends Application {
         return jsonResponse;
      }
      
-     //TODO:Add logic to determine if we need to downsize images (<1.5 MB)
-     private File downsizeImage(File imageFile){
-        String imageFileLocation = imageFile.getAbsolutePath();
-        Mat input = Imgcodecs.imread(imageFileLocation);
-        Mat output = new Mat();
-        Imgproc.resize(input, output, new Size(0, 0), 0.8, 0.8, Imgproc.INTER_AREA);
+     private File downsizeImageOrSkip(File imageFile){
+        File downsizedImage = imageFile;
+        System.out.println("image computed size: " + ((float)imageFile.length() / (1024* 1024)));
+        if ((float)imageFile.length() / (1024* 1024) > 1.5){
+            String imageFileLocation = imageFile.getAbsolutePath();
+            Mat input = Imgcodecs.imread(imageFileLocation);
+            Mat output = new Mat();
+            Imgproc.resize(input, output, new Size(0, 0), 0.8, 0.8, Imgproc.INTER_AREA);
 
-        Imgcodecs.imwrite(tempDownsizeImagePath, output);
-        File downsizedImage = new File(tempDownsizeImagePath);
+            Imgcodecs.imwrite(tempDownsizeImagePath, output);
+            downsizedImage = new File(tempDownsizeImagePath);
+        }
         return downsizedImage;
+     }
+
+     private void doTesseractOCR(){
+        long tesseractTotalTimer = startTimer();
+        try{
+            long preprocessingTimer = startTimer();
+            File processedImage = preprocessImage();
+            endTimer(preprocessingTimer, "Tesseract Preprocessing");
+            long tesseractTimer = startTimer();
+            ocrOutput = tesseract.doOCR(processedImage);
+            endTimer(tesseractTimer, "Tesseract Processing");
+            endTimer(tesseractTotalTimer, "Tesseract Total Time");
+            rightPaneText.setText(ocrOutput); 
+            }
+            catch (TesseractException e1){
+                e1.printStackTrace();
+            }
+     }
+     private void openSettingsWindow(){
+        Stage settingsStage = new Stage();
+        settingsStage.setTitle("Settings");
+        settingsStage.setWidth(400);
+        settingsStage.setHeight(300);
+
+        VBox settingsPane = new VBox(10);
+        settingsPane.setPadding(new Insets(15));
+        Label tesseractPathLabel = new Label("Tesseract Data Path: ");
+        TextField tesseractPathField = new TextField(tesseractDataPath);
+        tesseractPathField.setPrefWidth(250);
+        Button tesseractPathButton = new Button("Browse...");
+        tesseractPathButton.setOnAction(e -> {
+            DirectoryChooser dirChooser = new DirectoryChooser();
+            dirChooser.setTitle("Please select Tesseract's data directory");
+            File selectedDir = dirChooser.showDialog(settingsStage);
+            if (selectedDir != null){
+                tesseractPathField.setText(selectedDir.getAbsolutePath());
+            }
+        });
+
+        HBox tesseractPathBox = new HBox(10);
+        tesseractPathBox.getChildren().addAll(tesseractPathField, tesseractPathButton);
+
+        Label tempPathLabel = new Label("Temp Image Path:");
+        TextField tempPathField = new TextField();
+        tempPathField.setPrefWidth(250);
+        tempPathField.setText(tempPreprocessImagePath);
+        Button tempPathButton = new Button("Browse...");
+        tempPathButton.setOnAction(e -> {
+        DirectoryChooser dirChooser = new DirectoryChooser();
+        dirChooser.setTitle("Select Temp Image Directory");
+        File selectedDir = dirChooser.showDialog(settingsStage);
+        
+        if (selectedDir != null) {
+            tempPathField.setText(selectedDir.getAbsolutePath());
+        }
+        });
+    
+        HBox tempPathBox = new HBox(10);
+        tempPathBox.getChildren().addAll(tempPathField, tempPathButton);
+    
+        Label apiKeyLabel = new Label ("OCR API Key:");
+        TextField apiKeyField = new TextField();
+        apiKeyField.setPrefWidth(250);
+        apiKeyField.setText(apiKey);
+
+        HBox apiKeyBox = new HBox(10);
+        apiKeyBox.getChildren().addAll(apiKeyField);
+
+        Button saveButton = new Button("Save");
+        saveButton.setOnAction(e -> {
+            tesseract.setDatapath(tesseractPathField.getText());
+            tempPreprocessImagePath = tempPathField.getText();
+            apiKey = apiKeyField.getText();
+            settingsStage.close();
+        });
+    
+        settingsPane.getChildren().addAll(
+            tesseractPathLabel, tesseractPathBox,
+            tempPathLabel, tempPathBox,
+            apiKeyLabel, apiKeyBox,
+            saveButton
+        );
+    
+        Scene settingsScene = new Scene(settingsPane);
+        settingsStage.setScene(settingsScene);
+        settingsStage.show();
+    }
+    
+    @Override
+     public void stop() throws Exception{
+        httpClient.close();
+        System.out.println("debug: http client closed");
+        super.stop();
      }
 }
